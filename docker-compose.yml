@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  mlflow:
+    image: mlstudio/mlflow:latest
+    container_name: localtrainer-mlflow
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/app/mlflow
+      - model_cache:/app/models/.cache
+    environment:
+      - MLFLOW_TRACKING_URI=file:/app/mlflow/mlruns
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=file:/app/mlflow/artifacts
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri file:/app/mlflow/mlruns
+      --default-artifact-root file:/app/mlflow/artifacts
+    networks:
+      - localtrainer-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: localtrainer/app:latest
+    container_name: localtrainer-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../logs:/app/logs
+      - mlflow_data:/app/mlflow
+      - model_cache:/app/models/.cache
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PYTHONPATH=/app
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - TORCH_HOME=/app/models/.cache/torch
+      - TRANSFORMERS_CACHE=/app/models/.cache/transformers
+      - HF_HOME=/app/models/.cache
+    depends_on:
+      - mlflow
+    networks:
+      - localtrainer-network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 2G
+          cpus: '1'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: localtrainer-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - localtrainer-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+networks:
+  localtrainer-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mlflow_data:
+    driver: local
+  model_cache:
+    driver: local
+  redis_data:
+    driver: local

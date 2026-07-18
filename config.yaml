@@ -1,0 +1,63 @@
+project:
+  name: "LocalTrainer"
+  version: "3.0.0"
+  description: "Linux Sysadmin AI Training Platform"
+
+mlflow:
+  tracking_uri: "http://localhost:5000"
+  experiment_name: "linux-sysadmin-training"
+  registry_uri: "http://localhost:5000"
+
+training:
+  base_model: "Qwen2.5-3B-Instruct"
+  method: "qlora"
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  default_epochs: 3
+  default_batch_size: 2
+  default_learning_rate: 0.0002
+  max_seq_length: 2048
+  early_stopping_patience: 10
+  gradient_clipping: 1.0
+  bf16: true
+  packing: true
+
+hardware:
+  gpu: "GTX 1080 Ti"
+  vram_gb: 11
+  cpu_cores: 28
+  ram_gb: 15.5
+
+ollama:
+  base_url: "http://localhost:11434"
+  teacher_model: "qwen2.5:7b"
+  student_model: "qwen2.5:3b"
+
+lmstudio:
+  base_url: "http://localhost:1234/v1"
+
+data:
+  training_file: "data/all_categories_cleaned.jsonl"
+  max_samples: 10000
+  categories:
+    - system_design
+    - network_configuration
+    - security_hardening
+    - performance_tuning
+    - backup_recovery
+    - monitoring
+    - automation
+    - troubleshooting
+    - container_management
+    - ci_cd
+    - database_admin
+    - log_analysis
+    - capacity_planning
+    - incident_response
+    - compliance
+    - infrastructure_as_code
+    - cloud_services
+    - dns_management
+    - user_management
